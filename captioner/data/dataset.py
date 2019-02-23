@@ -4,6 +4,7 @@ import os
 import pickle
 import torch
 import numpy as np
+import pandas as pd
 
 from PIL import Image
 from pycocotools.coco import COCO
@@ -13,8 +14,8 @@ from torch.utils.data.sampler import Sampler
 
 class ImageDataset(Dataset):
     def __init__(self, caption_file, image_prefix, transform=None):
-        self.coco = COCO(caption_file)
-        self.caption_ids = list(self.coco.anns.keys())
+        self.df = pd.read_csv(caption_file) #cargamos el DataFrame
+        self.caption_ids = self.df['uId'].tolist()
         self.image_prefix = image_prefix
         self.transform = transform
 
@@ -23,8 +24,8 @@ class ImageDataset(Dataset):
 
     def __getitem__(self, index):
         caption_id = self.caption_ids[index]
-        image_id = self.coco.anns[caption_id]['image_id']
-        filename = self.coco.loadImgs(image_id)[0]['file_name']
+        image_id = self.df.loc[self.df['uId'] == caption_id]['imgId'].tolist()[0]
+        filename = image_id + '.png'
         image_path = os.path.join(self.image_prefix, filename)
 
         image = Image.open(image_path).convert('RGB')

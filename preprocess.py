@@ -5,6 +5,7 @@ import nltk
 import os
 import pickle
 
+import pandas as pd
 import numpy as np
 import torch
 import torch.nn as nn
@@ -91,11 +92,11 @@ def main(args):
 
 def build_dictionary(caption_files, tokenize):
     dictionary = Dictionary()
-    for filename in caption_files:
-        coco = COCO(filename)
-        progress_bar = tqdm(coco.anns.values(), desc='| Build Dictionary', leave=False)
-        for annotation in progress_bar:
-            tokens = tokenize(annotation['caption'].lower())
+    for filename in caption_files: #aca pasar el nombre del .csv
+        df = pd.read_csv(filename)
+        progress_bar = tqdm(df['report'].tolist(), desc='| Build Dictionary', leave=False)
+        for report in progress_bar:
+            tokens = tokenize(report.lower())
             for word in tokens:
                 dictionary.add_word(word)
             dictionary.add_word(dictionary.eos_word)
@@ -110,12 +111,14 @@ def make_binary_dataset(caption_file, output_file, dictionary, tokenize, append_
             unk_counter.update([word])
 
     output = {}
-    coco = COCO(caption_file)
-    progress_bar = tqdm(coco.anns.items(), desc='| Binarize Captions', leave=False)
-    for idx, (caption_id, caption) in enumerate(progress_bar):
-        caption = caption['caption'].lower()
+    df = pd.read_csv(caption_file)
+    ''' lista de tuplas de la forma (report_id, report) '''
+    df_tuple = [(df.loc[[i]]['uId'].tolist()[0], df.loc[[i]]['report'].tolist()[0]) for i in range(df.shape[0])]
+    progress_bar = tqdm(df_tuple, desc='| Binarize Captions', leave=False)
+    for tupl in progress_bar:
+        caption = tupl[1].lower()
         caption_tokens = dictionary.binarize(caption, tokenize, append_eos, consumer=unk_consumer)
-        output[caption_id] = caption_tokens.numpy().astype(np.int32)
+        output[tupl[0]] = caption_tokens.numpy().astype(np.int32)
         nsent, ntok = nsent + 1, ntok + len(caption_tokens)
 
     # Use pickle as sentence lengths vary
