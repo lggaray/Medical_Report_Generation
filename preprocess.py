@@ -12,7 +12,6 @@ import torch.nn as nn
 import torchvision.models as models
 import torchvision.transforms as transforms
 
-from pycocotools.coco import COCO
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -25,16 +24,16 @@ def get_args():
     parser = argparse.ArgumentParser('Data pre-processing')
     parser.add_argument('--seed', default=42, type=int, help='pseudo random number generator seed')
 
-    parser.add_argument('--data', required=True, help='path to COCO datasets')
+    parser.add_argument('--data', required=True, help='path to datasets')
     parser.add_argument('--dest-dir', default='data-bin', help='destination dir')
 
-    parser.add_argument('--train-image', default='images/train2014', help='relative path to train images')
-    parser.add_argument('--valid-image', default='images/val2014', help='relative path to validation images')
-    parser.add_argument('--test-image', default='images/val2017', help='relative path to test images')
+    parser.add_argument('--train-image', default='images/train', help='relative path to train images')
+    parser.add_argument('--valid-image', default='images/val', help='relative path to validation images')
+    parser.add_argument('--test-image', default='images/test', help='relative path to test images')
 
-    parser.add_argument('--train-caption', default='annotations/captions_train2014.json', help='train captions')
-    parser.add_argument('--valid-caption', default='annotations/captions_val2014.json', help='validation captions')
-    parser.add_argument('--test-caption', default='annotations/captions_val2017.json', help='test captions')
+    parser.add_argument('--train-caption', default='annotations/reports_train.csv', help='train captions')
+    parser.add_argument('--valid-caption', default='annotations/reports_val.csv', help='validation captions')
+    parser.add_argument('--test-caption', default='annotations/reports_test.csv', help='test captions')
 
     parser.add_argument('--image-size', type=int, default=256, help='size for resizing images')
     parser.add_argument('--crop_size', type=int, default=224, help='size for randomly cropping images')

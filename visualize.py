@@ -2,6 +2,9 @@ import argparse
 import logging
 import math
 import nltk
+import pickle
+import string
+import pandas as pd
 
 import os
 import random
@@ -9,7 +12,6 @@ import torch
 import torch.nn as nn
 
 from PIL import Image
-from pycocotools.coco import COCO
 from termcolor import colored
 from tqdm import tqdm
 
@@ -28,10 +30,10 @@ def get_args():
     parser.add_argument('--seed', default=42, type=int, help='pseudo random number generator seed')
 
     # Add data arguments
-    parser.add_argument('--coco-path', required=True, help='path to COCO datasets')
-    parser.add_argument('--test-caption', default='annotations/captions_val2017.json', help='reference captions')
-    parser.add_argument('--test-image', default='images/val2017', help='path to test images')
-    parser.add_argument('--caption-ids', default=[301028, 44224, 87968, 471109], type=int, nargs='+', help='caption ids')
+    parser.add_argument('--dataset-path', required=True, help='path to datasets')
+    parser.add_argument('--test-caption', default='annotations/reports_test.csv', help='reference captions')
+    parser.add_argument('--test-image', default='images/test', help='path to test images')
+    parser.add_argument('--caption-ids', default=None, type=int, nargs='+', help='caption ids')
     parser.add_argument('--image-size', type=int, default=256, help='size for resizing images')
     parser.add_argument('--crop_size', type=int, default=224, help='size for randomly cropping images')
     parser.add_argument('--checkpoint-path', default='checkpoints/checkpoint_best.pt', help='path to the model file')
@@ -60,12 +62,12 @@ def main(args):
     logging.info('Loaded a dictionary of {} words'.format(len(dictionary)))
 
     # Load dataset
-    coco = COCO(os.path.join(args.coco_path, args.test_caption))
+    test = pd.read_csv(os.path.join(args.dataset_path, args.test_caption))
     if args.caption_ids is None:
-        args.caption_ids = random.sample(list(coco.anns.keys()), 50)
-    image_ids = [coco.anns[id]['image_id'] for id in args.caption_ids]
-    reference_captions = [coco.anns[id]['caption'] for id in args.caption_ids]
-    image_names = [os.path.join(args.coco_path, args.test_image, coco.loadImgs(id)[0]['file_name']) for id in image_ids]
+        args.caption_ids = random.sample(test['uId'].tolist(), 60)
+    image_ids = [test.loc[test['uId'] == id]['imgId'].tolist()[0] for id in args.caption_ids]
+    reference_captions = [test.loc[test['uId'] == id]['report'].tolist()[0] for id in args.caption_ids]
+    image_names = [os.path.join(args.dataset_path, args.test_image, id + '.png') for id in image_ids]
 
     # Transform image
     transform = transforms.Compose([
@@ -101,10 +103,16 @@ def main(args):
     with torch.no_grad():
         hypos = generator.generate(image_features)
     for i, (id, image, reference_caption) in enumerate(zip(args.caption_ids, images, reference_captions)):
-        output_image = os.path.join('images', '{}.jpg'.format(id))
+        output_image = os.path.join('images', '{}.png'.format(id))
         attention = hypos[i][0]['attention'].view(14, 14, -1).cpu().numpy()
         system_tokens = [dictionary.words[tok] for tok in hypos[i][0]['tokens'] if tok != dictionary.eos_idx]
+        ''' dumpeo dict para entender mejor las predicciones y referencias'''
+        prediction = "".join([" "+i if not i.startswith("'") and i not in string.punctuation else i for i in system_tokens]).strip()
+        dic = {'prediction' : prediction, 'reference': reference_caption}
+        with open('images/{}.p'.format(id), 'wb') as f:
+            pickle.dump(dic, f)
         utils.plot_image_caption(image, output_image, system_tokens, reference_caption, attention)
+
 
 
 if __name__ == '__main__':
