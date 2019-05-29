@@ -1,5 +1,6 @@
 import argparse
 import os
+import similarity
 
 from nltk.tokenize import word_tokenize
 from nltk.translate.bleu_score import corpus_bleu
@@ -33,10 +34,16 @@ def main(args):
     scores = {}
     reference = readlines(args.reference, wrapped=True)
     system = readlines(args.system)
+    emb, bow, n = 0, 0, 0
+    for i in range(len(reference)):
+        aux1, aux2 = similarity.sim(system[i], reference[i][0])
+        emb += aux1
+        bow += aux2
+        n += 1
     for order in args.orders:
         scores[order] = corpus_bleu(reference, system, weights=(1.0 / order,) * order)
     print(', '.join('BLEU{} = {:.4f}'.format(order, 100 * score) for order, score in scores.items()))
-
+    print('Coseno con emb: {}, Coseno con bow: {}'.format(emb/n, bow/n))
 
 if __name__ == '__main__':
     args = get_args()

@@ -21,7 +21,7 @@ def get_args():
 
     # Add data arguments
     parser.add_argument('--data', default='data-bin', help='path to data directory')
-    parser.add_argument('--checkpoint-path', default='checkpoints/checkpoint_best.pt', help='path to the model file')
+    parser.add_argument('--checkpoint-path', default='checkpoints/checkpoint_best1.pt', help='path to the model file')
     parser.add_argument('--max-tokens', default=16000, type=int, help='maximum number of tokens in a batch')
     parser.add_argument('--batch-size', default=32, type=int, help='maximum number of sentences in a batch')
     parser.add_argument('--num-workers', default=8, type=int, help='number of data workers')

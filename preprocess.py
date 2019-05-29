@@ -27,13 +27,13 @@ def get_args():
     parser.add_argument('--data', required=True, help='path to datasets')
     parser.add_argument('--dest-dir', default='data-bin', help='destination dir')
 
-    parser.add_argument('--train-image', default='images/train', help='relative path to train images')
-    parser.add_argument('--valid-image', default='images/val', help='relative path to validation images')
-    parser.add_argument('--test-image', default='images/test', help='relative path to test images')
+    parser.add_argument('--train-image', default='images/imgs', help='relative path to train images')
+    parser.add_argument('--valid-image', default='images/imgs', help='relative path to validation images')
+    parser.add_argument('--test-image', default='images/imgs', help='relative path to test images')
 
-    parser.add_argument('--train-caption', default='annotations/reports_train.csv', help='train captions')
-    parser.add_argument('--valid-caption', default='annotations/reports_val.csv', help='validation captions')
-    parser.add_argument('--test-caption', default='annotations/reports_test.csv', help='test captions')
+    parser.add_argument('--train-caption', default='annotations/reports_train_supra.csv', help='train captions')
+    parser.add_argument('--valid-caption', default='annotations/reports_val_supra.csv', help='validation captions')
+    parser.add_argument('--test-caption', default='annotations/reports_test_supra.csv', help='test captions')
 
     parser.add_argument('--image-size', type=int, default=256, help='size for resizing images')
     parser.add_argument('--crop_size', type=int, default=224, help='size for randomly cropping images')
@@ -55,10 +55,13 @@ def main(args):
 
     # Build dictionary
     word_tokenize = nltk.tokenize.word_tokenize
-    dictionary = build_dictionary([args.train_caption], word_tokenize)
+    dictionary, low = build_dictionary([args.train_caption], word_tokenize)
     dictionary.finalize(threshold=args.threshold, num_words=args.num_words)
     dictionary.save(os.path.join(args.dest_dir, 'dict.txt'))
+    with open('list_of_words.p', 'wb') as f:
+        pickle.dump(low, f, protocol=pickle.HIGHEST_PROTOCOL)
     logging.info('Built a source dictionary with {} words'.format(len(dictionary)))
+    logging.info('Built a list of words with {} words'.format(len(low)))
 
     make_binary_dataset(args.train_caption, os.path.join(args.dest_dir, 'train-tokens.p'), dictionary, word_tokenize)
     make_binary_dataset(args.valid_caption, os.path.join(args.dest_dir, 'valid-tokens.p'), dictionary, word_tokenize)
@@ -81,8 +84,8 @@ def main(args):
     test_dataset = load_data(args.test_caption, args.test_image)
 
     # Extract features
-    vgg = models.vgg19(pretrained=True).eval().cuda()
-    model = nn.Sequential(*list(vgg.features.children())[:-2])
+    pretrained_model = models.vgg19(pretrained=True).eval().cuda() #vgg19
+    model = nn.Sequential(*list(pretrained_model.features.children())[:-2])
 
     extract_features(args, model, train_dataset, os.path.join(args.dest_dir, 'train-features'))
     extract_features(args, model, valid_dataset, os.path.join(args.dest_dir, 'valid-features'))
@@ -91,15 +94,17 @@ def main(args):
 
 def build_dictionary(caption_files, tokenize):
     dictionary = Dictionary()
+    list_of_words = []
     for filename in caption_files: #aca pasar el nombre del .csv
         df = pd.read_csv(filename)
         progress_bar = tqdm(df['report'].tolist(), desc='| Build Dictionary', leave=False)
         for report in progress_bar:
             tokens = tokenize(report.lower())
             for word in tokens:
+                list_of_words.append(word)
                 dictionary.add_word(word)
             dictionary.add_word(dictionary.eos_word)
-    return dictionary
+    return dictionary, list_of_words
 
 
 def make_binary_dataset(caption_file, output_file, dictionary, tokenize, append_eos=True):

@@ -17,7 +17,7 @@ from torch.serialization import default_restore_location
 
 def load_embedding(embed_path, dictionary):
     """Parse an embedding text file into an torch.nn.Embedding layer."""
-    embed_dict, embed_dim = {}, None
+    embed_dict, embed_dim = {}, 300 #embed_dim = None
     with open(embed_path) as file:
         for line in file:
             tokens = line.rstrip().split(" ")
@@ -30,6 +30,8 @@ def load_embedding(embed_path, dictionary):
     for idx, word in enumerate(dictionary.words):
         if word in embed_dict:
             embedding.weight.data[idx] = embed_dict[word]
+    #for param in embedding.parameters():
+    #    param.requires_grad = False
     return embedding
 
 

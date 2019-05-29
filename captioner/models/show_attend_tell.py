@@ -6,7 +6,6 @@ from captioner import utils
 from captioner.models import CaptionModel
 from captioner.models import register_model, register_model_architecture
 
-
 class BahdanauAttention(nn.Module):
     def __init__(self, input_dim, context_dim):
         super().__init__()
@@ -53,7 +52,7 @@ class ShowAttendTellModel(CaptionModel):
         self.cell_proj = nn.Linear(hidden_size, hidden_size)
 
         self.layers = nn.ModuleList([
-            nn.LSTMCell(input_size=hidden_size + embed_dim if layer == 0 else hidden_size, hidden_size=hidden_size)
+            nn.LSTMCell(input_size=hidden_size + embed_dim if layer == 0 else hidden_size, hidden_size=hidden_size) #parche -100
             for layer in range(num_layers)
         ])
 
@@ -92,7 +91,7 @@ class ShowAttendTellModel(CaptionModel):
             caption_inputs = caption_inputs[:, -1:]
 
         seqlen = caption_inputs.size(1)
-        x = self.embedding(caption_inputs)
+        x = self.embedding(caption_inputs) #self.embedding(caption_inputs)
         x = F.dropout(x, p=self.dropout, training=self.training)
 
         # B x T x C -> T x B x C
@@ -148,10 +147,10 @@ class ShowAttendTellModel(CaptionModel):
 
 @register_model_architecture('show_attend_tell', 'show_attend_tell')
 def base_architecture(args):
-    args.embed_dim = getattr(args, 'embed_dim', 300)
-    args.embed_path = getattr(args, 'embed_path', None)
+    args.embed_dim = getattr(args, 'embed_dim', 300) #usar 200 para med2vec, otherwise 300 
+    args.embed_path = getattr(args, 'embed_path', None) # '/users/lgaray/Medical_Report_Generation/wiki-news-300d-1M.vec') #med2vec
     args.image_dim = getattr(args, 'image_dim', 512)
     args.hidden_size = getattr(args, 'hidden_size', 512)
     args.num_layers = getattr(args, 'num_layers', 1)
-    args.dropout = getattr(args, 'dropout', 0.4)
-    args.use_attention = getattr(args, 'use_attention', 'True')
+    args.dropout = getattr(args, 'dropout', 0.2)
+    args.use_attention = getattr(args, 'use_attention', 'True') #'True'

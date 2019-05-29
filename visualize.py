@@ -31,8 +31,8 @@ def get_args():
 
     # Add data arguments
     parser.add_argument('--dataset-path', required=True, help='path to datasets')
-    parser.add_argument('--test-caption', default='annotations/reports_test.csv', help='reference captions')
-    parser.add_argument('--test-image', default='images/test', help='path to test images')
+    parser.add_argument('--test-caption', default='annotations/reports_test_supra.csv', help='reference captions')
+    parser.add_argument('--test-image', default='images/imgs', help='path to test images')
     parser.add_argument('--caption-ids', default=None, type=int, nargs='+', help='caption ids')
     parser.add_argument('--image-size', type=int, default=256, help='size for resizing images')
     parser.add_argument('--crop_size', type=int, default=224, help='size for randomly cropping images')
@@ -64,7 +64,7 @@ def main(args):
     # Load dataset
     test = pd.read_csv(os.path.join(args.dataset_path, args.test_caption))
     if args.caption_ids is None:
-        args.caption_ids = random.sample(test['uId'].tolist(), 60)
+        args.caption_ids = random.sample(test['uId'].tolist(), 10)
     image_ids = [test.loc[test['uId'] == id]['imgId'].tolist()[0] for id in args.caption_ids]
     reference_captions = [test.loc[test['uId'] == id]['report'].tolist()[0] for id in args.caption_ids]
     image_names = [os.path.join(args.dataset_path, args.test_image, id + '.png') for id in image_ids]

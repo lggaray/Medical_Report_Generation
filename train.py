@@ -4,6 +4,7 @@ import multiprocessing
 import os
 import torch
 import torch.nn as nn
+import pickle
 
 from tqdm import tqdm
 
@@ -20,7 +21,7 @@ def get_args():
     # Add data arguments
     parser.add_argument('--data', default='data-bin', help='path to data directory')
     parser.add_argument('--max-tokens', default=16000, type=int, help='maximum number of tokens in a batch')
-    parser.add_argument('--batch-size', default=120, type=int, help='maximum number of sentences in a batch')
+    parser.add_argument('--batch-size', default=80, type=int, help='maximum number of sentences in a batch')
     parser.add_argument('--num-workers', default=multiprocessing.cpu_count(), type=int, help='number of data workers')
 
     # Add model arguments
@@ -29,7 +30,7 @@ def get_args():
     # Add optimization arguments
     parser.add_argument('--max-epoch', default=100, type=int, help='force stop training at specified epoch')
     parser.add_argument('--clip-norm', default=5, type=float, help='clip threshold of gradients')
-    parser.add_argument('--lr', default=2e-4, type=float, help='learning rate')
+    parser.add_argument('--lr', default=2e-4, type=float, help='learning rate') #2e-4
     parser.add_argument('--momentum', default=0.99, type=float, help='momentum factor')
     parser.add_argument('--weight-decay', default=0.0, type=float, help='weight decay')
     parser.add_argument('--lr-shrink', default=0.2, type=float, help='learning rate shrink factor for annealing')
@@ -90,6 +91,8 @@ def main(args):
 
         model.train()
         stats = {'loss': 0., 'lr': 0., 'num_tokens': 0., 'batch_size': 0., 'grad_norm': 0., 'clip': 0.}
+        dic =  {'loss': [], 'lr': [], 'grad_norm': []}
+
         progress_bar = tqdm(train_loader, desc='| Epoch {:03d}'.format(epoch), leave=False)
 
         for i, sample in enumerate(progress_bar):
@@ -103,7 +106,8 @@ def main(args):
 
             # Normalize gradients by number of tokens and perform clipping
             for name, param in model.named_parameters():
-                param.grad.data.div_(sample['num_tokens'])
+                if param.grad is not None: #parche
+                    param.grad.data.div_(sample['num_tokens'])
             grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip_norm)
             optimizer.step()
 
@@ -115,10 +119,14 @@ def main(args):
             stats['grad_norm'] += grad_norm
             stats['clip'] += 1 if grad_norm > args.clip_norm else 0
             progress_bar.set_postfix({key: '{:.4g}'.format(value / (i + 1)) for key, value in stats.items()}, refresh=True)
+            dic['loss'].append(loss.item() / sample['num_tokens'])
+            dic['lr'].append(optimizer.param_groups[0]['lr'])
+            dic['grad_norm'].append(grad_norm)
 
         logging.info('Epoch {:03d}: {}'.format(epoch, ' | '.join(key + ' {:.4g}'.format(
             value / len(progress_bar)) for key, value in stats.items())))
-
+        with open('logs_dict1.p', 'wb') as ff: #########################
+            pickle.dump(dic, ff)
         # Adjust learning rate based on validation loss
         valid_loss = validate(args, model, criterion, valid_dataset, epoch)
         lr_scheduler.step(valid_loss)
@@ -138,6 +146,7 @@ def validate(args, model, criterion, valid_dataset, epoch):
 
     model.eval()
     stats = {'valid_loss': 0, 'num_tokens': 0, 'batch_size': 0}
+    dic = {'valid_loss': []}
     progress_bar = tqdm(valid_loader, desc='| Epoch {:03d}'.format(epoch), leave=False)
 
     for i, sample in enumerate(progress_bar):
@@ -150,9 +159,12 @@ def validate(args, model, criterion, valid_dataset, epoch):
         stats['num_tokens'] += sample['num_tokens'] / len(sample['caption_inputs'])
         stats['batch_size'] += len(sample['caption_inputs'])
         progress_bar.set_postfix({key: '{:.4g}'.format(value / (i + 1)) for key, value in stats.items()}, refresh=True)
+        dic['valid_loss'].append(loss.item() / sample['num_tokens'])
 
     logging.info('Epoch {:03d}: {}'.format(epoch, ' | '.join(key + ' {:.4g}'.format(
         value / len(progress_bar)) for key, value in stats.items())))
+    with open('logs_dict2.p', 'wb') as ff:  ##########################
+        pickle.dump(dic, ff)
     return stats['valid_loss'] / len(progress_bar)
 
 
