@@ -1,9 +1,11 @@
 import argparse
 import os
 import similarity
+import pickle
 
 from nltk.tokenize import word_tokenize
-from nltk.translate.bleu_score import corpus_bleu
+from nltk.translate.bleu_score import corpus_bleu, SmoothingFunction
+from nltk.translate.bleu_score import sentence_bleu
 
 
 def get_args():
@@ -34,16 +36,31 @@ def main(args):
     scores = {}
     reference = readlines(args.reference, wrapped=True)
     system = readlines(args.system)
+    cc = SmoothingFunction()
+    dic = {'emb': [], 'bow': [], 'bleu': []}
     emb, bow, n = 0, 0, 0
     for i in range(len(reference)):
         aux1, aux2 = similarity.sim(system[i], reference[i][0])
         emb += aux1
         bow += aux2
+        dic['emb'].append(aux1)
+        dic['bow'].append(aux2)
         n += 1
     for order in args.orders:
-        scores[order] = corpus_bleu(reference, system, weights=(1.0 / order,) * order)
+        accum = 0
+        for i in range(len(reference)):
+            try:
+                aux = sentence_bleu(reference[i], system[i], weights=(1.0 / order,) * order,  smoothing_function=cc.method4)
+            except:
+                aux = 0
+            if order == 1:
+                dic['bleu'].append(aux)
+            accum += aux
+        scores[order] = accum / len(reference)
     print(', '.join('BLEU{} = {:.4f}'.format(order, 100 * score) for order, score in scores.items()))
     print('Coseno con emb: {}, Coseno con bow: {}'.format(emb/n, bow/n))
+    with open("scores.p", "wb") as f:
+        pickle.dump(dic, f)
 
 if __name__ == '__main__':
     args = get_args()
