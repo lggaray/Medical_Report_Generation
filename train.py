@@ -28,7 +28,7 @@ def get_args():
     parser.add_argument('--arch', default='show_attend_tell', choices=ARCH_MODEL_REGISTRY.keys(), help='model architecture')
 
     # Add optimization arguments
-    parser.add_argument('--max-epoch', default=100, type=int, help='force stop training at specified epoch')
+    parser.add_argument('--max-epoch', default=300, type=int, help='force stop training at specified epoch')
     parser.add_argument('--clip-norm', default=5, type=float, help='clip threshold of gradients')
     parser.add_argument('--lr', default=2e-4, type=float, help='learning rate') #2e-4
     parser.add_argument('--momentum', default=0.99, type=float, help='momentum factor')
@@ -84,6 +84,8 @@ def main(args):
     last_epoch = state_dict['last_epoch'] if state_dict is not None else -1
     optimizer.param_groups[0]['lr'] = args.lr
 
+    dic= {} # 0->loss, 1->lr, 4->grad_norm, 6->valid_loss
+    
     for epoch in range(last_epoch + 1, args.max_epoch):
         train_loader = torch.utils.data.DataLoader(
             train_dataset, num_workers=args.num_workers, collate_fn=train_dataset.collater, pin_memory=True,
@@ -91,8 +93,6 @@ def main(args):
 
         model.train()
         stats = {'loss': 0., 'lr': 0., 'num_tokens': 0., 'batch_size': 0., 'grad_norm': 0., 'clip': 0.}
-        dic =  {'loss': [], 'lr': [], 'grad_norm': []}
-
         progress_bar = tqdm(train_loader, desc='| Epoch {:03d}'.format(epoch), leave=False)
 
         for i, sample in enumerate(progress_bar):
@@ -119,17 +119,17 @@ def main(args):
             stats['grad_norm'] += grad_norm
             stats['clip'] += 1 if grad_norm > args.clip_norm else 0
             progress_bar.set_postfix({key: '{:.4g}'.format(value / (i + 1)) for key, value in stats.items()}, refresh=True)
-            dic['loss'].append(loss.item() / sample['num_tokens'])
-            dic['lr'].append(optimizer.param_groups[0]['lr'])
-            dic['grad_norm'].append(grad_norm)
 
         logging.info('Epoch {:03d}: {}'.format(epoch, ' | '.join(key + ' {:.4g}'.format(
             value / len(progress_bar)) for key, value in stats.items())))
-        with open('logs_dict1.p', 'wb') as ff: #########################
-            pickle.dump(dic, ff)
+
+        dic[epoch] = list(map(lambda x: x/len(progress_bar), stats.values()))
+
         # Adjust learning rate based on validation loss
         valid_loss = validate(args, model, criterion, valid_dataset, epoch)
         lr_scheduler.step(valid_loss)
+
+        dic[epoch].append(valid_loss)
 
         # Save checkpoints
         if epoch % args.save_interval == 0:
@@ -137,7 +137,8 @@ def main(args):
         if optimizer.param_groups[0]['lr'] <= args.min_lr:
             logging.info('Done training!')
             break
-
+    with open('logs_dict.p', 'wb') as ff: #########################
+        pickle.dump(dic, ff)
 
 def validate(args, model, criterion, valid_dataset, epoch):
     valid_loader = torch.utils.data.DataLoader(
@@ -146,7 +147,6 @@ def validate(args, model, criterion, valid_dataset, epoch):
 
     model.eval()
     stats = {'valid_loss': 0, 'num_tokens': 0, 'batch_size': 0}
-    dic = {'valid_loss': []}
     progress_bar = tqdm(valid_loader, desc='| Epoch {:03d}'.format(epoch), leave=False)
 
     for i, sample in enumerate(progress_bar):
@@ -159,12 +159,9 @@ def validate(args, model, criterion, valid_dataset, epoch):
         stats['num_tokens'] += sample['num_tokens'] / len(sample['caption_inputs'])
         stats['batch_size'] += len(sample['caption_inputs'])
         progress_bar.set_postfix({key: '{:.4g}'.format(value / (i + 1)) for key, value in stats.items()}, refresh=True)
-        dic['valid_loss'].append(loss.item() / sample['num_tokens'])
 
     logging.info('Epoch {:03d}: {}'.format(epoch, ' | '.join(key + ' {:.4g}'.format(
         value / len(progress_bar)) for key, value in stats.items())))
-    with open('logs_dict2.p', 'wb') as ff:  ##########################
-        pickle.dump(dic, ff)
     return stats['valid_loss'] / len(progress_bar)
 
 
