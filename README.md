@@ -1,4 +1,4 @@
-# Medical image processing for automatic report generation
+# Medical Image Processing for Automatic Report Generation
 ### Overview
 This repository contains PyTorch implementations from [this](https://github.com/tangbinh/image-captioning) repository, based on [Show and Tell: A Neural Image Caption Generator](https://arxiv.org/pdf/1411.4555.pdf) and [Show, Attend and Tell: Neural Image Caption Generation with Visual Attention](https://arxiv.org/pdf/1502.03044.pdf). I modified part of its implementation to work with Spanish datasets and I made some convinient changes for this task.
 
